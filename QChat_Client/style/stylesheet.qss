@@ -1,0 +1,15 @@
+QDialog#LoginDialog,#RegisterDialog{
+background-color:rgb(255,255,255)    /* 背景颜色纯白 */
+}
+
+#user_label,#pass_label{
+   color:black;                      /* label文字设为黑色 */
+}
+
+#err_tip[state='normal']{
+   color: green;                    /* err_tip不同状态显式不同颜色 */
+}
+
+#err_tip[state='err']{
+   color: red;
+}
