@@ -25,5 +25,9 @@ private:
 	net::steady_timer deadline_{
 		_socket.get_executor(), std::chrono::seconds(60)
 	};
+	std::string _get_url;
+	std::unordered_map<std::string, std::string> _get_params;
+	//½âÎöurl
+	void PreParseGetParam();
 };
 

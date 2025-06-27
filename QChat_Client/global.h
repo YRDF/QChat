@@ -7,7 +7,9 @@
 #include<memory>
 #include<iostream>
 #include<mutex>
+#include<QDir>
 #include<QByteArray>
+#include <QSettings>
 
 
 extern std::function<void(QWidget *)> repolish;
@@ -59,5 +61,6 @@ enum ClickLbState{
     Selected = 1
 };
 
+extern QString gate_url_prefix;
 
 #endif // GLOBAL_H

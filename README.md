@@ -58,3 +58,55 @@ CServer类监听连接，连接到来交给HpptConnection类进行处理。CServ
 		beast::ostream(connection->_response.body()) << "receive get_test req";
 		});
 ```
+### 5:实现http的get和post请求时注意事项  
+如上文所示，get和post请求都要先注册到map中，使用时才能回调。函数
+```C++
+auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());  
+```
+可以将 HTTP 请求的 body 数据从缓冲区转换为字符串，随后对其进行JSON解析等操作。
+### 6.config.ini配置文件
+config.ini 文件是一种常见的配置文件，通常用于存储软件、应用程序、脚本或系统的设置和参数。它的核心目的是将程序的配置信息与程序代码本身分离开来。  
+**它的主要作用和好处包括**  
+**1.分离代码与配置：**  
+- 将需要经常调整的设置（如数据库连接信息、文件路径、API密钥、功能开关、日志级别、超时时间等）从程序代码中提取出来。  
+- 开发者或用户修改程序行为时，只需编辑这个文本文件，无需重新编译或修改源代码。
+
+**2.提高灵活性和可维护性：**  
+- 更改配置变得非常容易和快速。
+- 同一份代码可以轻松地在不同环境（开发、测试、生产）运行，只需加载不同的 config.ini 文件（或文件中的不同部分）。
+- 系统管理员或最终用户（如果允许）可以方便地根据需求调整设置，而不需要懂编程。
+
+**3.提高安全性（一定程度）：**
+- 可以将敏感信息（如密码、API密钥）从代码中移除，存储在配置文件中（注意：配置文件本身也需要保护，防止未授权访问！）。
+- 代码库（如Git）中可以不包含包含敏感信息的实际 config.ini，而是提供一个模板（如 config.ini.example），实际配置在部署时单独处理。  
+**4.可读性强：** 
+.ini 格式是一种简单、直观的纯文本格式，易于人类阅读和理解（相比XML或JSON有时更简洁）。  
+#### .ini 文件格式的特点（通常） 
+- **节（Sections）**：使用方括号 [] 将配置项分组。例如 [Database], [Logging], [API]。  
+- **键值对（Key-Value Pairs）**：每个配置项由 键 = 值 的形式定义。例如 host = localhost, port = 5432, debug = True。  
+- **注释（Comments）**：使用分号 ; 或井号 # 开头的行表示注释，用于解释说明，程序会忽略这些行。  
+- **类型**：值通常是字符串，但程序读取后会根据上下文解析成需要的类型（整数、布尔值、浮点数等）。  
+### 一个典型的 config.ini 示例  
+```ini
+; 数据库连接配置
+[Database]
+host = localhost
+port = 3306
+username = db_user
+password = secure_password_123 ; 注意：真实密码应妥善保管！
+database_name = my_app_db
+
+; 应用程序设置
+[AppSettings]
+debug_mode = False
+log_level = INFO ; 可以是 DEBUG, INFO, WARNING, ERROR
+max_connections = 100
+data_dir = /var/data/my_app
+
+; 外部API配置
+[ExternalAPI]
+api_url = https://api.example.com/v1
+api_key = your_api_key_here
+timeout_seconds = 30
+```  
+### 7.GateServer和VerifyServer之间通过GRPC通信
