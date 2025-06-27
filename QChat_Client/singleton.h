@@ -23,7 +23,7 @@ public:
 protected:
     Singleton()=default;
     Singleton (const Singleton<T>& s1) = delete;
-    Singleton operator=(const Singleton<T>& s1) = delete;
+    Singleton& operator=(const Singleton<T>& s1) = delete;
     static std::shared_ptr<T> _instance;
 };
 template<typename T>
