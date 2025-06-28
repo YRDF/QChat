@@ -110,3 +110,43 @@ api_key = your_api_key_here
 timeout_seconds = 30
 ```  
 ### 7.GateServer和VerifyServer之间通过GRPC通信
+**gRPC 是一个让不同进程（通常是不同服务器或客户端与服务器）像调用本地函数一样调用远程函数的框架，而 .proto 文件定义了这些“函数”的签名（方法名、参数、返回值）以及参数/返回值的数据结构。**  
+**.proto 文件的作用:**
+- 定义数据结构 (message): 描述你要传输的数据的字段（名称、类型、顺序）。  
+- 定义服务接口 (service): 描述你的 gRPC 服务提供哪些方法（函数），以及这些方法的输入 (request) 和输出 (response) 消息类型。  
+- 作为“合同” (Contract): 这是客户端和服务端共享的、约定好的接口规范，是代码生成的基础。   
+
+**gRPC和传统CS架构相同，但是其可以跨语言。完美解决了服务端和客户端使用不同编程语言进行开发和交互的难题，成为构建分布式系统（尤其是微服务）中服务间通信的优选方案。**  
+比如这个gRPC的proto文件：  
+```.proto
+syntax = "proto3";
+
+package message;
+
+service VarifyService {
+  rpc GetVarifyCode (GetVarifyReq) returns (GetVarifyRsp) {}
+}
+
+message GetVarifyReq {
+  string email = 1;
+}
+
+message GetVarifyRsp {
+  int32 error = 1;
+  string email = 2;
+  string code = 3;
+}
+```
+- 服务端将提供名为 VarifyService 的服务  
+- 该服务包含一个 RPC 方法 GetVarifyCode  
+- 客户端调用时需要传递 GetVarifyReq 参数  
+- 服务端处理完成后返回 GetVarifyRsp 结果  
+**表示要进行的服务是：客户端调用GetVarifyReq传送参数email给服务器，服务器收到参数后调用GetVarifyCode函数。返回GetVarifyRsp参数给客户端。**  
+
+生成message.grpc.pb.h和message.grpc.pb.cc文件(**gRPC通信的接口**):
+`G:\cppsoft\grpc\visualpro\third_party\protobuf\Debug\protoc.exe  -I="." --grpc_out="." --plugin=protoc-gen-grpc="G:\cppsoft\grpc\visualpro\Debug\grpc_cpp_plugin.exe" "message.proto"`  
+生成message.pb.h和message.pb.cc文件(**接口所用的参数**):
+`G:\cppsoft\grpc\visualpro\third_party\protobuf\Debug\protoc.exe --cpp_out=. "message.proto"`  
+#### 创建一个gRPC通信的单例类VerifyGrpcClient进行gRPC通信，传输邮箱，获取VerifyServer上的验证码。在LogicSystem中调用。  
+### 8.创建ConfigMgr类管理config.ini配置文件
+把config.ini的所有参数读取到map中

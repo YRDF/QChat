@@ -1,5 +1,6 @@
 #include "LogicSystem.h"
 #include "HttpConnection.h"
+#include "VarifyGrpcClient.h"
 
 LogicSystem::~LogicSystem()
 {
@@ -66,8 +67,11 @@ LogicSystem::LogicSystem()
 			}
 
 			auto email = src_root["email"].asString();
+			//使用grpc传送邮箱到verifyservice，获取邮箱验证码
+			GetVarifyRsp rsp =  VarifyGrpcClient::GetInstance()->GetVarifyCode(email);
+
 			std::cout << "email is " << email << std::endl;
-			root["error"] = 0;
+			root["error"] = rsp.error();
 			root["email"] = src_root["email"];
 			std::string jsonstr = root.toStyledString();
 			beast::ostream(connection->_response.body()) << jsonstr;

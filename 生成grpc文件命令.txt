@@ -1,0 +1,6 @@
+生成message.grpc.pb.h和message.grpc.pb.cc文件:
+G:\cppsoft\grpc\visualpro\third_party\protobuf\Debug\protoc.exe  -I="." --grpc_out="." --plugin=protoc-gen-grpc="G:\cppsoft\grpc\visualpro\Debug\grpc_cpp_plugin.exe" "message.proto"
+生成message.pb.h和message.pb.cc文件:
+G:\cppsoft\grpc\visualpro\third_party\protobuf\Debug\protoc.exe --cpp_out=. "message.proto"
+启动VarifyServer ：npm run serve
+git push -u origin main
