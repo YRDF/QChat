@@ -149,4 +149,41 @@ message GetVarifyRsp {
 `G:\cppsoft\grpc\visualpro\third_party\protobuf\Debug\protoc.exe --cpp_out=. "message.proto"`  
 #### 创建一个gRPC通信的单例类VerifyGrpcClient进行gRPC通信，传输邮箱，获取VerifyServer上的验证码。在LogicSystem中调用。  
 ### 8.创建ConfigMgr类管理config.ini配置文件
-把config.ini的所有参数读取到map中
+ConfigMgr做成一个单例类为全局访问使用。把config.ini的所有参数读取到map中，在各个文件中显示。  
+### 9.nodejs实现邮箱认证服务
+
+### 10.iocontexpool线程池管理iocontext
+让多个iocontext跑在不同的线程中  
+**`AsioIOServicePool`存储多个ioc(根据cpu的核心数确定线程池的线程数进而确定ioc的数量)。**  
+初始化ioc(上下文)时，必须让其绑定`WorkGuard`，不然其初始化就会被释放。使用智能指针`WorkGuardPtr`来管理`WorkGuard`。线程存储在vector中  
+`std::vector<std::thread> _threads`。  
+### 初始化连接池：
+```C++
+AsioIOServicePool::AsioIOServicePool(std::size_t size) :_ioServices(size),
+_workGuards(size), _nextIOService(0) {
+    for (std::size_t i = 0; i < size; ++i) {
+        _workGuards[i] = std::make_unique<WorkGuard>(boost::asio::make_work_guard(_ioServices[i]));
+    }
+
+    //遍历多个ioservice，创建多个线程，每个线程内部启动ioservice
+    for (std::size_t i = 0; i < _ioServices.size(); ++i) {
+        _threads.emplace_back([this, i]() {
+            _ioServices[i].run();
+            });
+    }
+}
+```  
+### GetIOService返回要调用的（跑在不同线程的）ioc:
+```C++
+boost::asio::io_context& AsioIOServicePool::GetIOService() {
+    auto& service = _ioServices[_nextIOService++];
+    if (_nextIOService == _ioServices.size()) {
+        _nextIOService = 0;
+    }
+    return service;
+}
+```  
+在这里，主函数有一个ioc，连接池有x个ioc。当连接到来时，主函数ioc先接收到连接，随后在CServer函数中将其转移给连接池的ioc进行通信。  
+### 11.grpc连接池
+因为使用了多线程ioc，所以可能会有多个连接调用单例类`VarifyService`，进行gRPC操作。所以我们要做一个RPC连接池，对gRPC连接进行保护。
+### 12.redis和redis连接池

@@ -1,6 +1,7 @@
 #pragma once
 #include"const.h"
 #include "HttpConnection.h"
+#include "AsioIOServicePool.h"
 
 class CServer :public std::enable_shared_from_this<CServer>
 {
@@ -10,6 +11,6 @@ public:
 private:
 	tcp::acceptor _acceptor;	//接收器，接收对端连接
 	net::io_context& _ioc;		//上下文
-	boost::asio::ip::tcp::socket _socket;		//每有一个连接，就用一个_socket绑定
+	//boost::asio::ip::tcp::socket _socket;		//每有一个连接，就用一个_socket绑定
 };
 

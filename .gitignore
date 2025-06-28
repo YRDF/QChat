@@ -2,3 +2,4 @@
 x64/
 debug/
 release/
+node_modules
