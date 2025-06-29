@@ -183,7 +183,36 @@ boost::asio::io_context& AsioIOServicePool::GetIOService() {
     return service;
 }
 ```  
-在这里，主函数有一个ioc，连接池有x个ioc。当连接到来时，主函数ioc先接收到连接，随后在CServer函数中将其转移给连接池的ioc进行通信。  
+在这里，主函数有一个ioc，连接池有x个ioc。当连接到来时，主函数ioc先接收到连接，随后在CServer函数中将其转移给连接池的ioc进行通信。这样就会有多个ioc同时管理多个连接。    
 ### 11.grpc连接池
-因为使用了多线程ioc，所以可能会有多个连接调用单例类`VarifyService`，进行gRPC操作。所以我们要做一个RPC连接池，对gRPC连接进行保护。
+因为使用了多线程ioc，所以可能会有多个连接同时调用单例类`VarifyService`，进行gRPC操作。所以我们要做一个RPC连接池，对gRPC连接进行保护。  
+由于`VarifyGrpcClient`是单例，其构造函数只会调用一次，因此被`VarifyGrpcClient`创建的连接池`RPConPool`也只会被创建一次。  
+在连接池中，使用一个queue队列来存储stub：
+```C++
+std::queue<std::unique_ptr<VarifyService::Stub>> connections_;
+```  
+每有连接时，就从队列中取出stub进行使用:  
+```C++
+std::unique_ptr<VarifyService::Stub> getConnection();
+```  
+使用队列时要加锁。使用完stub要将其返回队列:
+```C++
+void returnConnection(std::unique_ptr<VarifyService::Stub> context);
+```
+## 上面代码所实现的功能：
+**GateServer收到Client发送的请求后，会调用grpc服务，访问VarifyServer，VarifyServer会随机生成验证码，并且调用邮箱模块发送邮件给指定邮箱。同时把发送的结果给GateServer，GateServer再将消息回传给客户端。**
 ### 12.redis和redis连接池
+为实现验证码有效期，可以用redis管理过期的验证码自动删除，key为邮箱，value为验证码，过期时间为3min。  
+因为hredis的原始操作比较麻烦，所以我们封装redis操作类`RedisMgr`。**在创建池的时候，我们可以先写一个单例连接，然后再扩展出连接池。** 所以我们先创建一个单例类`RedisMgr`来对redis进行操作，随后封装`RedisConPool`连接池类。和之前封装grpc操作和RPC连接池一样。  
+使用redis连接时，先建立连接，然后进行auth认证，才能进行set，get等操作。  
+连接redis需要的参数：
+```C++
+    //redis连接上下文
+    redisContext* _connect;
+    //redis的回应
+    redisReply* _reply;
+```  
+连接池也是封装这参数,再队列中进行使用：
+```C++
+std::queue<redisContext*> connections_;
+```
