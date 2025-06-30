@@ -47,6 +47,19 @@ void RegisterDialog::initHttpHandlers()
         showTip(tr("验证码已经发送到邮箱!"),true);
         qDebug()<<"email is: "<<email;
     });
+
+    //注册点击注册按钮成功进行注册的回调函数ID_REG_USER
+    _handlers.insert(ReqId::ID_REG_USER,[this](const QJsonObject& jsonObj){
+        int error = jsonObj["error"].toInt();
+        if(error != ErrorCodes::SUCCESS){
+            showTip(tr("参数错误!"),false);
+            return;
+        }
+        auto user_name = jsonObj["user"].toString();
+        showTip(tr("注册成功！！！"),true);
+        qDebug()<<"uid is "<<jsonObj["uid"].toInt();
+        qDebug()<<"new user resign success: "<<user_name;
+    });
 }
 
 void RegisterDialog::on_get_code_clicked()
@@ -89,5 +102,49 @@ void RegisterDialog::slot_reg_mod_finish(ReqId id, QString res, ErrorCodes err)
     //回调函数根据不同参数执行不同回调
     _handlers[id](jsonDoc.object());
     return;
+}
+
+
+void RegisterDialog::on_confirm_btn_clicked()
+{
+    if(ui->user_edit->text() == ""){
+        showTip(tr("用户名不能为空"), false);
+        return;
+    }
+
+    if(ui->email_edit->text() == ""){
+        showTip(tr("邮箱不能为空"), false);
+        return;
+    }
+
+    if(ui->pass_edit->text() == ""){
+        showTip(tr("密码不能为空"), false);
+        return;
+    }
+
+    if(ui->confirm_edit->text() == ""){
+        showTip(tr("确认密码不能为空"), false);
+        return;
+    }
+
+    if(ui->confirm_edit->text() != ui->pass_edit->text()){
+        showTip(tr("密码和确认密码不匹配"), false);
+        return;
+    }
+
+    if(ui->varify_edit->text() == ""){
+        showTip(tr("验证码不能为空"), false);
+        return;
+    }
+
+    //day11 发送http请求注册用户
+    QJsonObject json_obj;
+    json_obj["user"] = ui->user_edit->text();
+    json_obj["email"] = ui->email_edit->text();
+    json_obj["passwd"] = ui->pass_edit->text();
+    json_obj["confirm"] = ui->confirm_edit->text();
+    json_obj["varifycode"] = ui->varify_edit->text();
+    HttpMgr::GetInstance()->PostHttpReq(QUrl(gate_url_prefix+"/user_register"),
+                                        json_obj, ReqId::ID_REG_USER,Modules::REGISTERMOD);
 }
 

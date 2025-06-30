@@ -98,4 +98,11 @@ async function SetRedisExpire(key,value, exptime){
 }
 
 
-module.exports = {GetRedis, QueryRedis,SetRedisExpire,}
+/**
+ * 退出函数
+ */
+function Quit(){
+    RedisCli.quit();
+}
+
+module.exports = {GetRedis, QueryRedis, Quit, SetRedisExpire,}

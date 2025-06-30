@@ -216,3 +216,40 @@ void returnConnection(std::unique_ptr<VarifyService::Stub> context);
 ```C++
 std::queue<redisContext*> connections_;
 ```
+### 12.Mysql与Mysql连接池
+尽管Mysql提供了访问数据库的接口，但是都是基于C风格的，为了便于面向对象设计，我们使用**Mysql Connector C++**这个库来访问mysql。
+```C++
+class SqlConnection {
+public:
+	SqlConnection(sql::Connection* con, int64_t lasttime) :_con(con), _last_oper_time(lasttime) {}
+	std::unique_ptr<sql::Connection> _con;
+	int64_t _last_oper_time;
+};
+```
+这个类是使用RAII思想，借用`std::unique_ptr`智能指针自动管理连接对象的生命周期。`_last_oper_time`记录最后一次操作的时间戳。我们使用这个类**构建数据库连接池，通过 _last_oper_time 实现连接超时回收机制，同时利用 RAII 模式确保数据库连接安全释放。**  
+和之前的pool一样，MysqlPool返回操作mysql数据库的`sql::Connection`，MysqlDao调用pool，进行数据库操作。  
+```C++
+    		//获取 MySQL 数据库驱动的实例
+			sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
+			//获取与数据库的连接
+			auto* con = driver->connect(url_, user_, pass_);
+			//设置当前连接的数据库模式（schema具体数据库名）
+			con->setSchema(schema_);
+```  
+如果客户端长时间没有对数据库进行操作，超过了数据库服务器设置的空闲连接超时时间，服务器会自动关闭该连接(Mysql是8小时)。所以我们可以开辟一个线程，对闲置数据库进行超时检测：
+```C++
+    	//开辟线程检测是否超时
+		_check_thread = std::thread([this]() {
+			while (!b_stop_) {
+				checkConnection();
+				std::this_thread::sleep_for(std::chrono::seconds(60));
+			}
+			});
+		//分离，操作系统回收
+		_check_thread.detach();
+``` 
+`checkConnection();`函数是用来对超时进行检测的，主要操作是：**循环查询当前数据库连接池，每个连接的`_last_oper_time`和当前时间差值是否大于一个时间，如果大于，就进行一个简单的SELECT 1进行查询，进行数据库连接保活。如果已经失去了连接，就再次建立连接，替换旧的。**  
+### 服务层最后创建服务层`MysqlMgr`来调用和Mysql交互的`MysqlDao`层
+## 这样就是连接池`MysqlPool`管理底层Mysql，`MysqlDao`调用连接池，应用层`MysqlMgr`调用`MysqlDao`的三层架构。
+最后，在数据库中建立存储过程，包含事务(原子性)和回滚操作。  
+### 在注册成功后，根据存储过程可以生产uid存储在mysql。mysql返回的uid可以作为用户登陆成功的标识符，返回给客户端。这样就能实现踢人等功能。
