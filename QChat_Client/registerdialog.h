@@ -23,6 +23,7 @@ private slots:
     void on_confirm_btn_clicked();
 
     void on_return_btn_clicked();
+    void on_cancel_btn_clicked();
 
 private:
     Ui::RegisterDialog *ui;
