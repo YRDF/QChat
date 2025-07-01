@@ -263,3 +263,45 @@ public:
     //如果出错，如用户名出错：
     AddTipErr(TipErr::TIP_USER_ERR, tr("用户名不能为空"));
 ```
+### 15.登陆通信流程：
+### Qt客户端发送邮箱，密码给GateServer服务器进行验证(HTTP发送)。验证成功后GateServer调用gRPC请求发送给StateServer。两个ChatServer是和Qt客户端进行聊天的(TCP)Server，两个ChatServer本地维护一个连上本server的用户数量的表。StateServer获取到用户信息后，通过gRPC查询两个ChatServer连接用户的表，找到连接用户比较少的ChatServer，获取ChatServer的ip生成专门的token给到GateServer。GateServer再把IP和token返回给Qt客户端进行TCP长通信。  
+### 客户端1连接到ChatServer1，客户端2连接到ChatServer2。当客户端1想发消息给客户端2时，客户端1先发送消息给ChatServer1，ChatServer1通过StateServer查询客户端2所在的服务器是在ChatServer2上，ChatServer1通过gRPC直接传给ChatServer2。
+### 16.使用gRPC连接GateServer和StateServer，编写proto文件
+创建一个StatusGrpcClient类，用于gRPC连接池和调用gRPC连接池进行gRPC消息传递。在gRPC客户端中，除了要定义接收信息的类，**只需要一个上下文contex和一个stub即可。stub是根据channel创建的,在获取服务器数据时，通过stub调用proto文件中定义的函数即可。下面是一个简单的gRPC客户端：**
+```C++
+#include <grpcpp/grpcpp.h>
+#include "math.grpc.pb.h"
+
+int main() {
+    // 1. 创建通道 (Channel)
+    auto channel = grpc::CreateChannel("localhost:50051", 
+                                      grpc::InsecureChannelCredentials());
+    
+    // 2. 创建存根 (Stub) - 核心对象
+    auto stub = math::MathService::NewStub(channel);
+    
+    // 3. 准备请求消息 (Request)
+    math::AddRequest request;
+    request.set_a(5);
+    request.set_b(3);
+    
+    // 4. 创建响应消息容器 (Response)
+    math::AddResponse response;
+    
+    // 5. 创建调用上下文 (ClientContext)
+    grpc::ClientContext context;
+    
+    // 6. 通过存根发起RPC调用
+    grpc::Status status = stub->Add(&context, request, &response);
+    
+    // 7. 处理结果
+    if (status.ok()) {
+        std::cout << "Result: " << response.result() << std::endl;
+    } else {
+        std::cerr << "RPC failed: " << status.error_message() << std::endl;
+    }
+    
+    return 0;
+}
+```  
+### 17.StateServer状态验证服务器(gRPC服务端)：
