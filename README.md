@@ -264,7 +264,7 @@ public:
     AddTipErr(TipErr::TIP_USER_ERR, tr("用户名不能为空"));
 ```
 ### 15.登陆通信流程：
-### Qt客户端发送邮箱，密码给GateServer服务器进行验证(HTTP发送)。验证成功后GateServer调用gRPC请求发送给StateServer。两个ChatServer是和Qt客户端进行聊天的(TCP)Server，两个ChatServer本地维护一个连上本server的用户数量的表。StateServer获取到用户信息后，通过gRPC查询两个ChatServer连接用户的表，找到连接用户比较少的ChatServer，获取ChatServer的ip生成专门的token给到GateServer。GateServer再把IP和token返回给Qt客户端进行TCP长通信。  
+### Qt客户端发送邮箱，密码给GateServer服务器进行验证(HTTP发送)。验证成功后GateServer调用gRPC请求发送给StateServer。两个ChatServer是和Qt客户端进行聊天的(TCP)Server，两个ChatServer本地维护一个连上本server的用户数量的表。StateServer获取到用户信息后，通过gRPC查询两个ChatServer连接用户的表，找到连接用户比较少的ChatServer，获取StateServer生成专门的token给到GateServer和ChatServer。GateServer再把ChatServer的IP和token返回给Qt客户端进行TCP长通信。  
 ### 客户端1连接到ChatServer1，客户端2连接到ChatServer2。当客户端1想发消息给客户端2时，客户端1先发送消息给ChatServer1，ChatServer1通过StateServer查询客户端2所在的服务器是在ChatServer2上，ChatServer1通过gRPC直接传给ChatServer2。
 ### 16.使用gRPC连接GateServer和StateServer，编写proto文件
 创建一个StatusGrpcClient类，用于gRPC连接池和调用gRPC连接池进行gRPC消息传递。在gRPC客户端中，除了要定义接收信息的类，**只需要一个上下文contex和一个stub即可。stub是根据channel创建的,在获取服务器数据时，通过stub调用proto文件中定义的函数即可。下面是一个简单的gRPC客户端：**
@@ -305,3 +305,140 @@ int main() {
 }
 ```  
 ### 17.StateServer状态验证服务器(gRPC服务端)：
+一个简单的gRPC服务器代码如下：
+```C++
+#include <grpcpp/grpcpp.h>  // 包含 gRPC C++ 核心库的头文件
+#include "echo.grpc.pb.h"   // 包含由 protoc 生成的 gRPC 服务头文件
+
+// 使用声明，简化代码中的类型名称
+using grpc::Server;         // gRPC 服务器类
+using grpc::ServerBuilder;  // 用于构建服务器的类
+using grpc::ServerContext;  // 表示 RPC 上下文的类
+using grpc::Status;         // 表示 RPC 状态的类
+using echo::EchoRequest;    // 请求消息类（来自 .proto 文件）
+using echo::EchoReply;      // 响应消息类（来自 .proto 文件）
+using echo::EchoService;    // 服务类（来自 .proto 文件）
+
+// 实现服务接口的类
+class EchoServiceImpl final : public EchoService::Service {
+  // 重写 SayHello RPC 方法
+  Status SayHello(
+      ServerContext* context,     // RPC 上下文信息（元数据、取消状态等）
+      const EchoRequest* request, // 客户端发送的请求消息
+      EchoReply* reply) override { // 需要填充的响应消息
+    
+    // 业务逻辑实现
+    std::string prefix = "Echo: ";
+    // 将请求消息加上前缀后设置到响应中
+    reply->set_echoed_message(prefix + request->message());
+    
+    // 打印日志（可选）
+    std::cout << "Received: " << request->message() << std::endl;
+    
+    // 返回 OK 状态表示处理成功
+    return Status::OK;
+  }
+};
+
+// 启动服务器的函数
+void RunServer() {
+  // 设置服务器监听的地址和端口
+  std::string server_address("0.0.0.0:50051");
+  
+  // 创建服务实现实例
+  EchoServiceImpl service;
+
+  // 创建服务器构建器
+  ServerBuilder builder;
+  
+  // 添加监听端口（使用不安全连接，仅用于测试）
+  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+  
+  // 注册服务实现
+  builder.RegisterService(&service);
+
+  // 构建并启动服务器
+  std::unique_ptr<Server> server(builder.BuildAndStart());
+  
+  // 输出启动信息
+  std::cout << "Server listening on " << server_address << std::endl;
+  
+  // 进入等待状态，处理客户端请求（阻塞调用）
+  server->Wait();
+}
+
+// 程序入口
+int main() {
+  RunServer();  // 启动服务器
+  return 0;     // 服务器关闭后退出
+}
+```  
+**如果一个proto的服务器中写有多个函数如:**
+```C++
+service StatusService {
+	rpc GetChatServer (GetChatServerReq) returns (GetChatServerRsp) {}
+	rpc Login(LoginReq) returns(LoginRsp);
+}
+```
+**那么只有一个程序实现了整个 StatusService（包含 GetChatServer 和 Login 两个方法）也就是服务器。可以有一个或多个客户端程序连接到这个服务器，同一个客户端可以调用多个方法,也可以有不同客户端分别调用不同方法。**
+### 18.Qt封装Tcp管理类
+聊天服务要维持一个长连接，方便服务器和客户端双向通信，所以Qt客户端需要一个TCPMgr来管理TCP连接。Qt中，要使用TCP连接，要包含头文件`#include<QTcpSocket>`。   
+创建一个单例类`TCPMgr`，在该类中，所进行的操作也和之前HTTPMgr的操作差不多：  
+tcp单例类中，创建tcp使用的socket，然后使用http请求登陆时获取的host和port调用`_socket.connectToHost(si.Host, _port);`建立tcp连接。但是连接成功后对收到的tcp数据要进行切包操作：  
+**切包操作:**
+```C++
+connect(_socket, &QTcpSocket::readyRead, this, [this]() {
+    _buffer.append(_socket->readAll());
+
+    // 防止缓冲区过大
+    if (_buffer.size() > MAX_BUFFER_SIZE) {
+        qWarning() << "Buffer overflow, disconnecting...";
+        _socket->disconnectFromHost();
+        return;
+    }
+
+    forever {
+        if (!_b_recv_pending) {
+            if (_buffer.size() < static_cast<int>(sizeof(quint16)*2)) {
+                return; // 不够消息头
+            }
+
+            QDataStream stream(&_buffer, QIODevice::ReadOnly);
+            stream.setVersion(QDataStream::Qt_5_0);
+            stream >> _message_id >> _message_len;
+
+            // 校验消息长度
+            if (_message_len > MAX_MESSAGE_LENGTH) {
+                qWarning() << "Invalid message length:" << _message_len;
+                _socket->disconnectFromHost();
+                return;
+            }
+
+            _buffer = _buffer.mid(sizeof(quint16)*2);
+            qDebug() << "Message ID:" << _message_id << ", Length:" << _message_len;
+        }
+
+        if (_buffer.size() < _message_len) {
+            _b_recv_pending = true;
+            return; // 不够消息体，等待下次数据
+        }
+
+        _b_recv_pending = false;
+        QByteArray messageBody = _buffer.left(_message_len);
+        _buffer = _buffer.mid(_message_len);
+
+        // 处理消息
+        handleMsg(ReqId(_message_id), _message_len, messageBody);
+
+        // 如果缓冲区过大且剩余数据较少，可以收缩
+        if (_buffer.capacity() > 1024 && _buffer.size() < 128) {
+            _buffer.shrink_to_fit();
+        }
+    }
+});
+```
+### 19.我们来温习一下Qt客户端的整个登录流程：
+**在输入邮箱和密码后，Qt客户端通过HTTP请求，把数据发送到GateServer。GateServer对数据进行验证，验证成功后GateServer调用gRPC把uid发送给StateServer。两个ChatServer是和Qt客户端进行聊天的(TCP)Server，两个ChatServer本地维护一个连上本server的用户数量的表(Redis存储uid，token)。StateServer获取到用户信息后，生成了token。通过gRPC查询两个ChatServer连接用户的表(存储uid,token)，找到连接用户比较少的ChatServer，把ChatServer的ip，port，error，token传回GateServer，GateServer传送回Qt客户端。客户端收到ChatServer的ip，port，token后，和其进行tcp通信。在第一次tcp通信时，Qt客户端要先把自己收到的uid和token发送给ChatServer进行验证，正确无误再开始通信。ChatServer收到uid和token后也要进行验证。tcp连接成功后，进行切包操作，获取完整且正确的信息。** 
+### 20.ChatServer服务器
+**tcp的服务器，负责连接接收，收发数据，心跳保活等。基于Asio搭建。**  
+**TCP服务器，在主函数中创建一个ioc，在CServer类中使用ioc对端口进行监听。当有连接进来时，CServer在AsioIOServicePool中获取一个新的ioc。通过该ioc创建一个CSession类，在该类中处理客户端连接，和发送过来的数据切包，发送消息等操作。CSession持有专属的socket，维持与单个客户端的完整会话。CServer调用StartAccept启动异步连接监听，不断获取主函数的新连接，主函数中的ioc专注于获取新连接。那么获取到的新连接如何通信？在StartAccept中_acceptor调用的`async_accept`中，第二个参数是一个回调函数，它在接收客户端连接成功时，会触发这个回调函数。在回调函数`HandleAccept`中，我们启动了`new_session->Start();`就可以在Start函数中对客户端发送的信息进行读取。**
