@@ -441,4 +441,37 @@ connect(_socket, &QTcpSocket::readyRead, this, [this]() {
 **在输入邮箱和密码后，Qt客户端通过HTTP请求，把数据发送到GateServer。GateServer对数据进行验证，验证成功后GateServer调用gRPC把uid发送给StateServer。两个ChatServer是和Qt客户端进行聊天的(TCP)Server，两个ChatServer本地维护一个连上本server的用户数量的表(Redis存储uid，token)。StateServer获取到用户信息后，生成了token。通过gRPC查询两个ChatServer连接用户的表(存储uid,token)，找到连接用户比较少的ChatServer，把ChatServer的ip，port，error，token传回GateServer，GateServer传送回Qt客户端。客户端收到ChatServer的ip，port，token后，和其进行tcp通信。在第一次tcp通信时，Qt客户端要先把自己收到的uid和token发送给ChatServer进行验证，正确无误再开始通信。ChatServer收到uid和token后也要进行验证。tcp连接成功后，进行切包操作，获取完整且正确的信息。** 
 ### 20.ChatServer服务器
 **tcp的服务器，负责连接接收，收发数据，心跳保活等。基于Asio搭建。**  
-**TCP服务器，在主函数中创建一个ioc，在CServer类中使用ioc对端口进行监听。当有连接进来时，CServer在AsioIOServicePool中获取一个新的ioc。通过该ioc创建一个CSession类，在该类中处理客户端连接，和发送过来的数据切包，发送消息等操作。CSession持有专属的socket，维持与单个客户端的完整会话。CServer调用StartAccept启动异步连接监听，不断获取主函数的新连接，主函数中的ioc专注于获取新连接。那么获取到的新连接如何通信？在StartAccept中_acceptor调用的`async_accept`中，第二个参数是一个回调函数，它在接收客户端连接成功时，会触发这个回调函数。在回调函数`HandleAccept`中，我们启动了`new_session->Start();`就可以在Start函数中对客户端发送的信息进行读取。**
+**TCP服务器，在主函数中创建一个ioc，在CServer类中使用ioc对端口进行监听。当有连接进来时，CServer在AsioIOServicePool中获取一个新的ioc。通过该ioc创建一个CSession类，在该类中处理客户端连接，和发送过来的数据切包，发送消息等操作。其实是旧的I/O上下文通过`_acceptor.async_accept()`将新连接的操作系统级Socket描述符传递给已绑定到新I/O上下文的`new_session->GetSocket()`。CSession持有专属的socket，维持与单个客户端的完整会话。CServer调用StartAccept启动异步连接监听，不断获取主函数的新连接，主函数中的ioc专注于获取新连接。那么获取到的新连接如何通信？在StartAccept中_acceptor调用的`async_accept`中，第二个参数是一个回调函数，它在接收客户端连接成功时，会触发这个回调函数。在回调函数`HandleAccept`中，我们启动了`new_session->Start();`就可以在Start函数中对客户端发送的信息进行读取。**  
+**star后，开始接收头部消息，头部包括消息id和消息length。我们使用了一个`asyncReadFull`函数希望一次将头部全部读取，内部是封装了`async_read_some`函数。读取到头部id和length后，创建一个`_recv_head_node`，它用于存储即将接收的消息体。接下来对消息体的body进行读取。等到消息体读取完全后，我们就把读取到的数据存储到之前创建的`_recv_head_node`中。下一次头部读取成功时，会再次创建新的`RecvNode`并覆盖`_recv_msg_node`。当完全读完后就调用`PostMsgToQue`，把消息存放到消息队列中，随后继续监听头部接受事件。在消息队列中，我们使用一个子线程分离出来专门对队列进行处理。队列接收投递后，我们判断队列是否为空，队列不为空我们就发出处理信号，对队列中数据进行处理。在该单例类中的构造函数中，我们对不同的消息id调用不同的回调函数进行注册。处理队列数据函数`DealMsg`无限循环，解析传入的数据的头id，根据不同的id回调不同的回调函数。**  
+### 21.在投递到队列时，为什么还需要shared_from_this？
+- 网络连接（Session）是异步操作，可能在消息处理完成前就被销毁  
+- 使用shared_from_this()创建shared_ptr会增加引用计数
+- 确保即使原始Session对象被销毁，只要消息还在队列中未被处理，该Session的智能指针会保持对象存活  
+可能发生：
+- 消息入队后，客户端断开连接
+- Session 对象被销毁
+- 处理线程尝试使用已销毁的 Session → 崩溃  
+可以解决的问题：
+- 网络线程和逻辑线程完全解耦
+- 逻辑线程处理消息时，原始网络连接可能已不存在
+- shared_ptr 保证 Session 存活到消息处理完成
+### 22.LogicNode里面为什么需要_session？
+1. 提供完整的消息上下文  
+消息处理需要知道：
+- 谁发送的消息（来源 Session）
+- 消息内容是什么（_recv_msg_node 中的数据）
+- 如何回复（通过 Session 发送响应）  
+LogicNode 将这两个关键元素绑定在一起，形成完整的消息上下文。  
+2. 支持双向通信  
+在回调函数中需要 Session 进行回复：  
+`session->Send(return_str, MSG_CHAT_LOGIN_RSP);`  
+3. 会话状态管理  
+每个 Session 可能有独立的状态  
+4. 网络层与逻辑层解耦  
+LogicSystem 不需要知道网络细节  
+**5. 多客户端区分**  
+**当有多个客户端连接时**  
+**Session 是区分不同客户端的唯一标识，没有它就无法知道消息来自哪个客户端。**  
+**TCP服务端是单一的：监听端口，接受连接，Session是连接代表：每个TCP连接对应一个Session对象。**   
+### 23.队列处理单例类中注册的回调函数有什么？分别是干什么的？
+#### 23.1 LoginHandler：登陆处理函数:
