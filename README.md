@@ -475,3 +475,28 @@ LogicSystem 不需要知道网络细节
 **TCP服务端是单一的：监听端口，接受连接，Session是连接代表：每个TCP连接对应一个Session对象。**   
 ### 23.队列处理单例类中注册的回调函数有什么？分别是干什么的？
 #### 23.1 LoginHandler：登陆处理函数:
+
+### 24.客户端单例类存储用户数据
+**Model-View-Controller”（MVC）架构模式:将应用程序的逻辑和用户界面分离，以便更好地管理和维护代码。**  
+把数据层做成单例的一个类，如：用户数据使用userMgr单例类。  
+
+### 24.客户端聊天界面重点难点
+#### 24.1 在设置客户端界面大小时，要先判断当前屏幕所能使用的最大界面值:
+```C++
+#include <QScreen>
+#include <QDebug>
+
+QScreen *screen = QGuiApplication::primaryScreen();
+QRect available = screen->availableGeometry();
+qDebug() << "Available size:" << available.size();
+qDebug() << "Available height:" << available.height();
+```  
+如果不进行判断，就会出现在缩小或者放大界面是出错导致界面无法显示。或者缩在任务栏中无法点开。  
+#### 24.2 Qt的拉伸策略`sizePolicy`设置:
+| 策略类型        | 是否可伸缩 | 描述                                            |
+| ----------- | ----- | --------------------------------------------- |
+| `Fixed`     | 否     | 控件的尺寸固定为其 `sizeHint()` 建议的大小，不会随着窗口或布局的变化而伸缩。 |
+| `Expanding` | 是     | 控件可以伸缩，并倾向于尽可能多地占用布局中可用的额外空间（主动扩张）。           |  
+
+- 使用 Fixed 策略的控件尺寸不变，适用于不希望被拉伸的控件。 
+- 使用 Expanding 策略的控件会主动扩展，适用于需要尽可能多空间的控件。

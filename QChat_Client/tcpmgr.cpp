@@ -1,5 +1,5 @@
 #include "tcpmgr.h"
-
+#include "usermgr.h"
 
 TcpMgr::~TcpMgr()
 {
@@ -145,6 +145,10 @@ void TcpMgr::initHandlers()
         if (jsonObj.contains("friend_list")) {
             UserMgr::GetInstance()->AppendFriendList(jsonObj["friend_list"].toArray());
         }*/
+
+        UserMgr::GetInstance()->SetUid(jsonObj["uid"].toInt());
+        UserMgr::GetInstance()->SetName(jsonObj["name"].toString());
+        UserMgr::GetInstance()->SetToken(jsonObj["token"].toString());
 
         emit sig_swich_chatdlg();
     });
