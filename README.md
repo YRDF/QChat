@@ -480,8 +480,8 @@ LogicSystem 不需要知道网络细节
 **Model-View-Controller”（MVC）架构模式:将应用程序的逻辑和用户界面分离，以便更好地管理和维护代码。**  
 把数据层做成单例的一个类，如：用户数据使用userMgr单例类。  
 
-### 24.客户端聊天界面重点难点
-#### 24.1 在设置客户端界面大小时，要先判断当前屏幕所能使用的最大界面值:
+### 25.客户端聊天界面重点难点
+#### 25.1 在设置客户端界面大小时，要先判断当前屏幕所能使用的最大界面值:
 ```C++
 #include <QScreen>
 #include <QDebug>
@@ -492,7 +492,7 @@ qDebug() << "Available size:" << available.size();
 qDebug() << "Available height:" << available.height();
 ```  
 如果不进行判断，就会出现在缩小或者放大界面是出错导致界面无法显示。或者缩在任务栏中无法点开。  
-#### 24.2 Qt的拉伸策略`sizePolicy`设置:
+#### 25.2 Qt的拉伸策略`sizePolicy`设置:
 | 策略类型        | 是否可伸缩 | 描述                                            |
 | ----------- | ----- | --------------------------------------------- |
 | `Fixed`     | 否     | 控件的尺寸固定为其 `sizeHint()` 建议的大小，不会随着窗口或布局的变化而伸缩。 |
@@ -500,3 +500,40 @@ qDebug() << "Available height:" << available.height();
 
 - 使用 Fixed 策略的控件尺寸不变，适用于不希望被拉伸的控件。 
 - 使用 Expanding 策略的控件会主动扩展，适用于需要尽可能多空间的控件。
+#### 25.3 Qt的QAction之QLineEdit自带的Action位置:
+Qt 为 QLineEdit 预留了 2 个固定槽位（左、右），可以用 addAction() 把 QAction 变成一个小图标按钮贴在输入框内部：  
+```C++
+QLineEdit *edit = new QLineEdit(this);
+
+// 创建 QAction
+QAction *searchAct = new QAction(QIcon(":/search.png"), tr("Search"), this);
+connect(searchAct, &QAction::triggered, this, &MainWindow::doSearch);
+
+// 放到输入框最右侧
+edit->addAction(searchAct, QLineEdit::TrailingPosition);  // 右侧
+// edit->addAction(searchAct, QLineEdit::LeadingPosition); // 左侧
+```
+#### 25.4 Qt的事件过滤系统eventFilter:
+Qt 的 eventFilter 是一种“事件拦截器”机制，允许你在事件到达目标对象之前（或之后）截获并处理它。常用于：
+- 监听多个控件的事件，而无需子类化每一个控件
+- 屏蔽或修改某些事件（如禁止鼠标滚轮、过滤按键）
+- 实现全局热键、拖拽、手势等高级交互  
+
+| 场景              | 典型事件类型                                                   | 为什么要拦截？                              |
+| --------------- | -------------------------------------------------------- | ------------------------------------ |
+| **全局热键 / 快捷键**  | `QEvent::KeyPress` `QEvent::ShortcutOverride`            | 在焦点不在某控件时仍能响应                        |
+| **屏蔽滚轮误触**      | `QEvent::Wheel`                                          | 防止鼠标滚轮改变 `QSpinBox` / `QComboBox` 值  |
+| **过滤非法字符**      | `QEvent::KeyPress` `QEvent::InputMethod`                 | 在 `QLineEdit` 中禁止输入非数字、空格、特殊符号       |
+| **拖拽文件**        | `QEvent::DragEnter` `QEvent::Drop`                       | 让控件支持拖入文件或 URL                       |
+| **单击 vs 双击自定义** | `QEvent::MouseButtonPress` `QEvent::MouseButtonDblClick` | 区分单击选中、双击编辑                          |
+| **悬停提示 / 状态切换** | `QEvent::Enter` `QEvent::Leave`                          | 鼠标进入/离开按钮时动态改变图标或颜色                  |
+| **防止窗口关闭**      | `QEvent::Close`                                          | 弹出“是否保存”确认框                          |
+| **触摸手势**        | `QEvent::TouchBegin` `QEvent::Gesture`                   | 自定义捏合、滑动等手势                          |
+| **过滤子对象事件**     | `QEvent::ChildAdded` `QEvent::ChildRemoved`              | 动态给所有子控件统一安装过滤器                      |
+| **右键菜单**        | `QEvent::ContextMenu`                                    | 完全自定义右键菜单，而不用 `setContextMenuPolicy` |
+
+### 26 Qt的qss探究
+
+
+
+
