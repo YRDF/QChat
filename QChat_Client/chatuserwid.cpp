@@ -22,6 +22,7 @@ void ChatUserWid::SetInfo(QString name, QString head, QString msg)
     // 设置图片自动缩放
     ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
     ui->icon_lb->setScaledContents(true);
+
     ui->user_name_lb->setText(_name);
     ui->user_chat_lb->setText(_msg);
 }

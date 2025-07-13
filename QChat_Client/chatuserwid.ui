@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
+    <width>411</width>
     <height>70</height>
    </rect>
   </property>
@@ -30,16 +30,16 @@
     <number>5</number>
    </property>
    <property name="leftMargin">
-    <number>6</number>
+    <number>2</number>
    </property>
    <property name="topMargin">
-    <number>2</number>
-   </property>
-   <property name="rightMargin">
     <number>6</number>
    </property>
-   <property name="bottomMargin">
+   <property name="rightMargin">
     <number>2</number>
+   </property>
+   <property name="bottomMargin">
+    <number>6</number>
    </property>
    <item>
     <widget class="QWidget" name="icon_wid" native="true">
@@ -95,6 +95,18 @@
    </item>
    <item>
     <widget class="QWidget" name="user_info_wid" native="true">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>16777215</height>
+      </size>
+     </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <property name="leftMargin">
        <number>2</number>
@@ -110,6 +122,18 @@
       </property>
       <item>
        <widget class="QLabel" name="user_name_lb">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>16777215</height>
+         </size>
+        </property>
         <property name="text">
          <string>七森七七</string>
         </property>
@@ -117,6 +141,18 @@
       </item>
       <item>
        <widget class="QLabel" name="user_chat_lb">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>16777215</height>
+         </size>
+        </property>
         <property name="text">
          <string>hello world！</string>
         </property>
@@ -139,22 +175,18 @@
        <height>50</height>
       </size>
      </property>
-     <widget class="QLabel" name="time_lb">
-      <property name="geometry">
-       <rect>
-        <x>-10</x>
-        <y>10</y>
-        <width>69</width>
-        <height>19</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>13:20</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <widget class="QLabel" name="time_lb">
+        <property name="text">
+         <string>13:20</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
   </layout>

@@ -13,6 +13,7 @@ public:
     void SetState(QString normal="", QString hover="", QString press="",
                   QString select="", QString select_hover="", QString select_press="");
 
+    virtual void mouseReleaseEvent(QMouseEvent *event)override;
     virtual void mousePressEvent(QMouseEvent *event)override;
     virtual void enterEvent(QEnterEvent *event)override;
     virtual void leaveEvent(QEvent *event)override;
