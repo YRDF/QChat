@@ -91,5 +91,26 @@ enum ListItemType{
     APPLY_FRIEND_ITEM, //好友申请
 };
 
+enum class ChatRole
+{
+
+    Self,
+    Other
+};
+
+struct MsgInfo{
+    QString msgFlag;//"text,image,file"
+    QString content;//表示文件和图像的url,文本信息
+    QPixmap pixmap;//文件和图片的缩略图
+};
+
+
+//申请好友标签输入框最低长度
+const int MIN_APPLY_LABEL_ED_LEN = 40;
+
+const QString add_prefix = "添加标签 ";
+
+const int  tip_offset = 5;
+
 
 #endif // GLOBAL_H
